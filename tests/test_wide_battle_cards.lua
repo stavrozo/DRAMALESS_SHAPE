@@ -163,7 +163,7 @@ return function(T)
   end)
 
   T.test("Splash is captured stationary and promoted to an above-ground card hop", function()
-    local captureKind, matrixY
+    local captureKind, matrixY, recentered
     local canvas = { setFilter = function() end }
     local graphics = {
       newCanvas = function() return canvas end,
@@ -181,7 +181,10 @@ return function(T)
       backPlacement = function() return 0, 0, "back" end,
       frontPlacement = function() return 0, 0, "front" end,
     }
-    local Cam = { steerable = true }
+    local Cam = {
+      steerable = true, still = false,
+      recentre = function() recentered = true end,
+    }
     local Billboard = {
       PULL = 0,
       mesh = function() return {} end,
@@ -222,11 +225,16 @@ return function(T)
         }
         Provider:begin(context, context.arena)
         T.equal(captureKind, nil, "bounce leaked into the captured texture")
+        T.equal(Cam.steerable, false, "native card camera remained steerable")
+        T.equal(Cam.still, true, "native card camera drift remained active")
+        T.equal(recentered, true, "native card camera was not recentered on begin")
         T.equal(Provider:cameraLocked(context), true)
         Provider:drawWorld(context)
         local expectedHop = 3 * 8 * (16 / 56)
         T.near(matrixY, 10 + expectedHop, 1e-9)
         Provider:finish()
+        T.equal(Cam.steerable, true)
+        T.equal(Cam.still, false)
         T.equal(Provider:cameraLocked(context), false)
       end)
     end)
