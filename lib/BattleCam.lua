@@ -90,14 +90,34 @@ BattleCam.RIGS = {
     side = 41.98, back = 41.16, height = 28.48,
     lookX = -3.24, lookY = -1.35, frameH = 55.62,
   },
+
+  -- Gen1Recomp WIDE battle layout (304x144).  WideBattle keeps the same
+  -- native 160x144 animation coordinates, then translates the player field
+  -- by (+20,+8) and the enemy field by (+136,0).  These two rigs solve the
+  -- same arena cells against those translated feet/baseline anchors:
+  -- player (46,104), enemy (260,56).  Keeping this in the camera means the
+  -- cards remain attached to real arena ground instead of being screen-space
+  -- sprites pasted over the voxel scene.
+  tele_uiwide = {
+    side = 105.72, back = 92.84, height = 37.88,
+    lookX = -3.17, lookY = 0.34, frameH = 24.93,
+  },
+  wide_uiwide = {
+    side = 58.28, back = 37.29, height = 28.48,
+    lookX = -6.59, lookY = -1.35, frameH = 30.13,
+  },
 }
 
 BattleCam.DEFAULT_RIG = "tele"
 
--- The rig an arena asks for, falling back to the default for anything that
--- does not ask (and for a name that is not one of the two).
+-- The rig an arena asks for, falling back to the default.  uiWide is a
+-- presentation flag added by VoxelBattleArenaProvider when Gen1Recomp is
+-- drawing its 304x144 WIDE battle composition; it must not change CLASSIC.
 function BattleCam.rigFor(arena)
   local want = arena and arena.cam
+  if arena and arena.uiWide then
+    want = (want == "wide") and "wide_uiwide" or "tele_uiwide"
+  end
   return BattleCam.RIGS[want] or BattleCam.RIGS[BattleCam.DEFAULT_RIG]
 end
 
@@ -106,11 +126,8 @@ end
 -- A slow orbit about the arena's vertical axis. Rotating about a point
 -- BETWEEN the two mons is what makes it parallax rather than a pan: the mons
 -- are pinned to the ground, so the near one slides one way across the frame
--- and the far one slides the OTHER, by the amount their difference in
--- distance implies. Over a full swing that is about eight pixels of relative
--- movement -- plainly visible as depth, far too slow to fight the fight.
--- The angle is small because the lens is long: two degrees of orbit is seven
--- pixels of travel through an eleven-degree field of view.
+-- and the far end RIGHT -- the layout arrived
+-- at by standing in the right place rather than by mirroring anything.
 --
 -- Under it, a much smaller breath in and out along the same line, on an
 -- unrelated period, so the pair never returns to the same pose on any cycle
