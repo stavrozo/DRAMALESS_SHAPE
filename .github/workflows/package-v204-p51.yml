@@ -18,11 +18,11 @@ jobs:
       - name: Install Lua and zip
         run: |
           sudo apt-get update
-          sudo apt-get install -y lua5.4 zip
+          sudo apt-get install -y lua5.1 zip
 
       - name: Syntax-check all Lua files
         run: |
-          find . -type f -name '*.lua' -not -path './.git/*' -print0 | xargs -0 -n1 luac5.4 -p
+          find . -type f -name '*.lua' -not -path './.git/*' -print0 | xargs -0 -n1 luac5.1 -p
 
       - name: Run PR #51 regression tests
         run: |
@@ -60,6 +60,9 @@ jobs:
           end
 
           function T.near(actual, expected, epsilon, msg)
+            if type(actual) ~= 'number' or type(expected) ~= 'number' then
+              error((msg and (msg .. ': ') or '') .. 'near() requires numbers; got ' .. tostring(actual) .. ' and ' .. tostring(expected), 2)
+            end
             if math.abs(actual - expected) > epsilon then
               error((msg and (msg .. ': ') or '') .. 'expected ' .. tostring(expected) .. ' ± ' .. tostring(epsilon) .. ', got ' .. tostring(actual), 2)
             end
@@ -70,7 +73,7 @@ jobs:
           io.write(string.format('\n%d passed, %d failed\n', passes, failures))
           if failures > 0 then os.exit(1) end
           LUA
-          lua5.4 /tmp/run_wide_tests.lua
+          lua5.1 /tmp/run_wide_tests.lua
 
       - name: Verify package identity
         run: |
