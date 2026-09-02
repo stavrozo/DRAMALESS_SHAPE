@@ -1,0 +1,108 @@
+name: Package v2.0.4 + PR51
+
+on:
+  push:
+    branches:
+      - v2.0.4-p51-package
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact package tree
+        uses: actions/checkout@v4
+
+      - name: Install Lua and zip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4 zip
+
+      - name: Syntax-check all Lua files
+        run: |
+          find . -type f -name '*.lua' -not -path './.git/*' -print0 | xargs -0 -n1 luac5.4 -p
+
+      - name: Run PR #51 regression tests
+        run: |
+          cat > /tmp/run_wide_tests.lua <<'LUA'
+          local failures, passes = 0, 0
+          local T = {}
+
+          function T.read(path)
+            local f, err = io.open(path, 'rb')
+            if not f then error(err, 0) end
+            local s = f:read('*a')
+            f:close()
+            return s
+          end
+
+          function T.test(name, fn)
+            local ok, err = pcall(fn)
+            if ok then
+              passes = passes + 1
+              io.write('PASS: ', name, '\n')
+            else
+              failures = failures + 1
+              io.stderr:write('FAIL: ', name, '\n', tostring(err), '\n')
+            end
+          end
+
+          function T.equal(actual, expected, msg)
+            if actual ~= expected then
+              error((msg and (msg .. ': ') or '') .. 'expected ' .. tostring(expected) .. ', got ' .. tostring(actual), 2)
+            end
+          end
+
+          function T.truthy(value, msg)
+            if not value then error(msg or 'expected truthy value', 2) end
+          end
+
+          function T.near(actual, expected, epsilon, msg)
+            if math.abs(actual - expected) > epsilon then
+              error((msg and (msg .. ': ') or '') .. 'expected ' .. tostring(expected) .. ' ± ' .. tostring(epsilon) .. ', got ' .. tostring(actual), 2)
+            end
+          end
+
+          local suite = assert(loadfile('tests/test_wide_battle_cards.lua'))()
+          suite(T)
+          io.write(string.format('\n%d passed, %d failed\n', passes, failures))
+          if failures > 0 then os.exit(1) end
+          LUA
+          lua5.4 /tmp/run_wide_tests.lua
+
+      - name: Verify package identity
+        run: |
+          grep -F 'mod.exports.version = "2.0.4"' main.lua
+          grep -F '"version": "2.0.4"' manifest.json
+          test -f lib/BattleCam.lua
+          test -f lib/VoxelBattleArenaProvider.lua
+          test -f lib/VoxelBattleCardProvider.lua
+          test -f lib/VoxelBattleScene.lua
+
+      - name: Build installable mod ZIP
+        run: |
+          rm -rf /tmp/dramaless-package
+          mkdir -p /tmp/dramaless-package
+          cp main.lua manifest.json mod.card /tmp/dramaless-package/
+          cp -a lib data /tmp/dramaless-package/
+          if [ -d assets ]; then cp -a assets /tmp/dramaless-package/; fi
+          if [ -f README.md ]; then cp README.md /tmp/dramaless-package/; fi
+          if [ -f LICENSE ]; then cp LICENSE /tmp/dramaless-package/; fi
+          if [ -f CREDITS.md ]; then cp CREDITS.md /tmp/dramaless-package/; fi
+          cd /tmp/dramaless-package
+          zip -r "$GITHUB_WORKSPACE/DRAMALESS_SHAPE-2.0.4-p51-android-fix.zip" .
+
+      - name: Inspect ZIP root
+        run: |
+          unzip -l DRAMALESS_SHAPE-2.0.4-p51-android-fix.zip | head -80
+          unzip -p DRAMALESS_SHAPE-2.0.4-p51-android-fix.zip manifest.json | grep -F '"version": "2.0.4"'
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: DRAMALESS_SHAPE-2.0.4-p51-android-fix
+          path: DRAMALESS_SHAPE-2.0.4-p51-android-fix.zip
+          if-no-files-found: error
+          retention-days: 7
